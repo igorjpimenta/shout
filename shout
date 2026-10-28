@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+# shout — uppercase each input line.
+#
+# Install: requires Python 3.8+ stdlib only, no dependencies.
+#   chmod +x shout
+# Run:
+#   echo ' hi ' | ./shout            -> ' HI '
+#   echo ' hi ' | ./shout --trim     -> 'HI'
+#   ./shout <file>                   (reads file args in order)
+#   ./shout --bogus                  (prints error to stderr, exits 2)
+#
+# Behavior:
+#   - No file args: read stdin. File args: read each file in order.
+#   - Only known flag is --trim (strips surrounding whitespace from each
+#     line BEFORE uppercasing). Any unknown flag -> error to stderr, exit 2.
+#   - Uppercasing is line-wise; original line endings are preserved
+#     (a line without a trailing newline stays without one).
+
+import sys
+
+
+def process_line(line, trim):
+    # Split off the line ending so trim/upper never touch it.
+    if line.endswith("\r\n"):
+        body, ending = line[:-2], "\r\n"
+    elif line.endswith("\n") or line.endswith("\r"):
+        body, ending = line[:-1], line[-1:]
+    else:
+        body, ending = line, ""
+    if trim:
+        body = body.strip()
+    return body.upper() + ending
+
+
+def process_stream(stream, trim, out):
+    for line in stream:
+        out.write(process_line(line, trim))
+
+
+def main(argv):
+    trim = False
+    files = []
+    for arg in argv[1:]:
+        if arg == "--trim":
+            trim = True
+        elif arg.startswith("-"):
+            print(f"shout: unknown flag: {arg}", file=sys.stderr)
+            return 2
+        else:
+            files.append(arg)
+
+    out = sys.stdout
+    try:
+        if not files:
+            process_stream(sys.stdin, trim, out)
+        else:
+            for path in files:
+                try:
+                    with open(path, "r", encoding="utf-8", errors="replace") as f:
+                        process_stream(f, trim, out)
+                except FileNotFoundError:
+                    print(f"shout: no such file: {path}", file=sys.stderr)
+                    return 1
+                except IsADirectoryError:
+                    print(f"shout: is a directory: {path}", file=sys.stderr)
+                    return 1
+    except BrokenPipeError:
+        # Downstream closed the pipe (e.g. `... | head`); exit quietly.
+        try:
+            sys.stdout = None
+            sys.stderr.close()
+        except Exception:
+            pass
+        return 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
