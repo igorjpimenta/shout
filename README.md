@@ -102,6 +102,19 @@ $ echo $?
 2
 ```
 
+## Tests
+
+The repository ships a plain shell test suite covering stdin, file
+arguments, `--trim`, and unknown-flag exit codes. Run it from the
+repository root:
+
+```sh
+sh tests/test_shout.sh
+```
+
+It prints one `ok - <name>` line per passing case and exits 0 when
+everything passes.
+
 ## Exit codes
 
 | Code | Meaning |
